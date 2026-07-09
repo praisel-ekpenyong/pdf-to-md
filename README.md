@@ -1,70 +1,94 @@
 # PDF to Markdown
 
-Turn a PDF into a Markdown file you can copy, edit, or save.
+A local tool that converts PDF files into Markdown text you can copy, edit, and save.
 
-This app runs **on your computer**. Your files stay local unless you change how the server is set up.
-
-## What it does
-
-1. You upload a PDF in the browser.
-2. The app reads the text from the file.
-3. For scanned or photo pages (where text is not selectable), it can use OCR (optical character recognition) if those tools are installed.
-4. You get Markdown output — ready to **Copy** or **Download**.
-
-**Text PDFs** (where you can already select text) usually work right away.  
-**Scanned PDFs** (like a photo of a page) need an extra one-time setup, explained below.
+The application runs on your computer. Files are processed locally and are not uploaded to an external service.
 
 ---
 
-## Easiest way to run it (recommended)
+## Overview
 
-This path uses **Docker Desktop**, which installs the tools needed for scanned PDFs for you.
+| Topic | Summary |
+|--------|---------|
+| **Purpose** | Convert a PDF into Markdown |
+| **How you use it** | Open a page in your browser, select a file, convert |
+| **Privacy** | Processing stays on your machine |
+| **Best for** | Notes, documentation, and reusable text from PDFs |
 
-### Before you start
+### How conversion works
 
-1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and open it so it is running.
-2. Put this project folder on your computer (for example on the Desktop).
+1. You select a PDF in the browser.
+2. The app extracts existing text from the document.
+3. If a page is a scan or image (no selectable text), it can read that page with OCR when the required tools are available. OCR means software that recognizes text in images.
+4. The result is Markdown, which you can copy or download as a `.md` file.
 
-### Start the app
+**Text-based PDFs** (you can already select text with the mouse) usually convert immediately.  
+**Scanned PDFs** (photographs or image-only pages) need a one-time setup so the app can read those pages. The recommended setup below includes that support automatically.
 
-Open **PowerShell** and run:
+---
+
+## Requirements
+
+Choose one of the two setup options below.
+
+| Option | Best if you… | Supports scanned PDFs |
+|--------|----------------|------------------------|
+| **A — Docker** (recommended) | Want the simplest full setup | Yes (included) |
+| **B — Python only** | Prefer not to use Docker | Text PDFs only, unless you install extra tools |
+
+You will also need a modern web browser (Chrome, Edge, Firefox, or Safari).
+
+---
+
+## Option A — Run with Docker (recommended)
+
+Docker Desktop packages the application and the tools needed for scanned documents so you do not install them separately.
+
+### 1. Prepare
+
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and start it.
+2. Place this project folder on your computer (for example: `Desktop\pdf-to-md`).
+
+### 2. Start the application
+
+Open PowerShell, then run:
 
 ```powershell
 cd $env:USERPROFILE\Desktop\pdf-to-md
 docker compose up --build
 ```
 
-Wait until Docker finishes building and starting. Leave that window open while you use the app.
+Wait until startup finishes. Leave this window open while you use the app.
 
-### Open the app
+### 3. Open the interface
 
 In your browser, go to:
 
 **http://127.0.0.1:8000/**
 
-### Use it
+### 4. Convert a file
 
-1. Drop a PDF into the upload area (or click to browse).
-2. Click **Convert**.
-3. When it finishes, use **Copy** or **Download**.
+1. Drop a PDF onto the upload area, or click to browse.
+2. Select **Convert**.
+3. When conversion finishes, use **Copy** or **Download**.
 
-### Stop the app
+### 5. Stop the application
 
-In the PowerShell window, press `Ctrl + C`.
+In the PowerShell window, press **Ctrl+C**.
 
 ---
 
-## Run without Docker (Windows)
+## Option B — Run with Python (Windows)
 
-Use this if you prefer Python and do not need scanned-PDF support right away.
+Use this option if you already use Python and mainly convert text-based PDFs.
 
 ### 1. Install Python
 
-Install [Python 3](https://www.python.org/downloads/) if you do not already have it. During setup, choose the option to add Python to PATH.
+Install [Python 3](https://www.python.org/downloads/). During installation, enable **Add Python to PATH**.
 
 ### 2. Install and start
 
-Open **PowerShell** in the project folder:
+Open PowerShell in the project folder:
 
 ```powershell
 cd $env:USERPROFILE\Desktop\pdf-to-md
@@ -74,49 +98,50 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Then open **http://127.0.0.1:8000/** in your browser.
+Open **http://127.0.0.1:8000/** in your browser and convert files as described above.
 
-### Scanned PDFs without Docker
+### Support for scanned PDFs (optional)
 
-Text PDFs work with the steps above. For scans and photo PDFs, install both of these and add them to your system PATH:
+Without Docker, scanned pages require two additional programs on your computer, both added to the system PATH:
 
 1. [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki)
 2. [Poppler for Windows](https://github.com/oschwartz10612/poppler-windows/releases)
 
-Or use the Docker method instead — it is simpler for most people.
+If that setup is unfamiliar, use **Option A (Docker)** instead.
 
 ---
 
-## Status indicator
+## Understanding the status indicator
 
-In the top-right of the page:
+The label in the top-right of the page shows whether the service is ready:
 
-| Message | Meaning |
+| Status | Meaning |
 |--------|---------|
-| **Ready** | Everything needed is available, including support for scans |
-| **Ready · text PDFs** | Normal text PDFs work; scans need OCR setup |
-| **Offline** | The app is not running — start it and refresh the page |
+| **Ready** | Conversion is available, including support for scanned pages |
+| **Ready · text PDFs** | Text-based PDFs work; scanned pages need OCR setup |
+| **Offline** | The application is not running. Start it, then refresh the page |
 
 ---
 
-## Tips
+## Practical notes
 
-- Keep the terminal (or Docker) window open while you use the app.
-- Very large or heavily scanned documents can take a few minutes.
-- If conversion looks empty, the PDF may be a scan and OCR may not be set up yet.
+- Keep the PowerShell or Docker window open for as long as you use the app.
+- Large files or multi-page scans may take several minutes.
+- If the result is empty, the PDF may be image-based and OCR may not be configured yet.
+- The address `127.0.0.1` means “this computer only.” Other people on the internet cannot reach your app through that link under the default setup.
 
 ---
 
-## For developers (optional)
+## For developers
 
-You can also use this project as a Python library, command-line tool, or HTTP API.
+Optional. Not required to use the browser interface.
 
-**Library**
+**Python library**
 
 ```python
 from pdf_to_md import convert_bytes, ConvertOptions
 
-result = convert_bytes(pdf_bytes, ConvertOptions(lang="eng"), filename="scan.pdf")
+result = convert_bytes(pdf_bytes, ConvertOptions(lang="eng"), filename="document.pdf")
 print(result.markdown)
 ```
 
@@ -126,11 +151,17 @@ print(result.markdown)
 python -m pdf_to_md input.pdf
 ```
 
-**API docs** (when the app is running): http://127.0.0.1:8000/docs  
+**Useful URLs** (while the app is running)
 
-**Health check:** http://127.0.0.1:8000/health  
+| URL | Purpose |
+|-----|---------|
+| http://127.0.0.1:8000/ | Web interface |
+| http://127.0.0.1:8000/docs | API documentation |
+| http://127.0.0.1:8000/health | Dependency and readiness check |
 
-**Upload size limit:** set `PDF_TO_MD_MAX_UPLOAD_MB` (default 25 MB locally, 50 MB in Docker).
+**Configuration**
+
+- Maximum upload size: environment variable `PDF_TO_MD_MAX_UPLOAD_MB` (default 25 MB without Docker, 50 MB with Docker).
 
 **Tests**
 
@@ -143,4 +174,4 @@ pytest
 
 ## License
 
-You may use this for personal and commercial projects.
+Available for personal and commercial use.
