@@ -1,0 +1,9 @@
+services:
+  pdf-to-md:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - PDF_TO_MD_MAX_UPLOAD_MB=50
+    # Uncomment to persist nothing special — jobs are in-memory
+    restart: unless-stopped

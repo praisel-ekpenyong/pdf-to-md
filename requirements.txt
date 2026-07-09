@@ -1,0 +1,15 @@
+# Core conversion
+pdfplumber>=0.11.0
+pypdf>=4.0.0
+pytesseract>=0.3.10
+pdf2image>=1.17.0
+Pillow>=10.0.0
+
+# API
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.9
+pydantic>=2.0.0
+
+# Dev / tests (optional)
+pytest>=8.0.0

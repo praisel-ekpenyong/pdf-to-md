@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Convert a PDF to Markdown on your computer." />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#0f766e" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0c0c0e" media="(prefers-color-scheme: dark)" />
+  <meta property="og:title" content="PDF to Markdown" />
+  <meta property="og:description" content="Convert a PDF to Markdown on your computer." />
+  <meta property="og:type" content="website" />
+  <title>PDF to Markdown</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to converter</a>
+  <div class="noise" aria-hidden="true"></div>
+
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="PDF to Markdown home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 256 256" fill="none">
+            <path d="M200 224H56a8 8 0 0 1-8-8V40a8 8 0 0 1 8-8h96l56 56v128a8 8 0 0 1-8 8Z" stroke="currentColor" stroke-width="14" stroke-linejoin="round"/>
+            <path d="M152 32v56h56" stroke="currentColor" stroke-width="14" stroke-linejoin="round"/>
+            <path d="M96 140h64M96 172h40" stroke="currentColor" stroke-width="14" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="brand-text">
+          <span class="brand-name">PDF to Markdown</span>
+          <span class="brand-tag">Local converter</span>
+        </span>
+      </a>
+
+      <div id="status-pill" class="status status-muted" title="Status">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span class="status-label">Connecting</span>
+      </div>
+    </header>
+
+    <div id="health-banner" class="banner" hidden role="status"></div>
+
+    <main id="workspace" class="workspace" tabindex="-1">
+      <section class="panel panel-source" aria-labelledby="source-title">
+        <header class="panel-head">
+          <h1 id="source-title" class="panel-title">Convert a PDF</h1>
+          <p class="panel-lead">Get Markdown from your PDF in one step.</p>
+        </header>
+
+        <div
+          id="dropzone"
+          class="dropzone"
+          tabindex="0"
+          role="button"
+          aria-label="Select or drop a PDF file"
+        >
+          <input id="file-input" type="file" accept=".pdf,application/pdf" hidden />
+
+          <div class="dropzone-idle" id="uploader-idle">
+            <span class="dropzone-glyph" aria-hidden="true">
+              <svg width="28" height="28" viewBox="0 0 256 256" fill="none">
+                <path d="M128 160V48" stroke="currentColor" stroke-width="14" stroke-linecap="round"/>
+                <path d="m88 88 40-40 40 40" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M40 168v24a16 16 0 0 0 16 16h144a16 16 0 0 0 16-16v-24" stroke="currentColor" stroke-width="14" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <p class="dropzone-title">Drop PDF here</p>
+            <p class="dropzone-hint">or <span class="text-link">browse files</span></p>
+          </div>
+
+          <div class="dropzone-file" id="uploader-file" hidden>
+            <span class="file-glyph" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 256 256" fill="none">
+                <path d="M200 224H56a8 8 0 0 1-8-8V40a8 8 0 0 1 8-8h96l56 56v128a8 8 0 0 1-8 8Z" stroke="currentColor" stroke-width="14" stroke-linejoin="round"/>
+                <path d="M152 32v56h56" stroke="currentColor" stroke-width="14" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <div class="file-meta">
+              <p class="file-name" id="file-name">document.pdf</p>
+              <p class="file-size" id="file-size">0 KB</p>
+            </div>
+            <button type="button" class="icon-btn" id="btn-clear" title="Remove file" aria-label="Remove file">
+              <svg width="16" height="16" viewBox="0 0 256 256" fill="none" aria-hidden="true">
+                <path d="M200 56 56 200M56 56l144 144" stroke="currentColor" stroke-width="16" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <input id="lang" type="hidden" value="eng" />
+        <input id="ocr-dpi" type="hidden" value="300" />
+        <input id="min-chars" type="hidden" value="20" />
+        <input id="force-ocr" type="checkbox" hidden />
+
+        <div class="actions">
+          <button id="btn-convert" class="btn btn-primary" type="button" disabled aria-busy="false">
+            <span class="btn-label">Convert to Markdown</span>
+          </button>
+        </div>
+
+        <div id="progress-wrap" class="progress" hidden>
+          <div class="progress-head">
+            <span id="progress" class="progress-msg">Working</span>
+            <span id="progress-pct" class="progress-pct">0%</span>
+          </div>
+          <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="progress">
+            <div id="progress-bar" class="progress-fill" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <p id="error" class="alert alert-error" hidden role="alert"></p>
+        <div id="warnings" class="alert alert-warn" hidden></div>
+      </section>
+
+      <section class="panel panel-result" id="panel-result" aria-labelledby="result-title" data-state="empty">
+        <header class="result-bar">
+          <div class="result-identity">
+            <h2 id="result-title" class="result-title">Markdown</h2>
+            <p id="result-success" class="result-success" hidden>Ready to copy</p>
+            <div id="meta" class="chip" hidden></div>
+            <div id="result-source" class="chip chip-muted" hidden></div>
+          </div>
+          <div class="result-actions" id="result-actions" data-idle="true">
+            <button id="btn-copy" class="btn btn-ghost" type="button" disabled>Copy</button>
+            <button id="btn-download" class="btn btn-secondary" type="button" disabled>Download</button>
+          </div>
+        </header>
+
+        <div class="preview-shell">
+          <pre id="output" class="preview is-empty" aria-live="polite"></pre>
+
+          <div class="preview-empty" id="preview-empty">
+            <div class="preview-empty-card">
+              <img
+                class="preview-empty-art"
+                src="/static/assets/empty-state.jpg"
+                alt=""
+                width="160"
+                height="160"
+                decoding="async"
+              />
+              <p class="preview-empty-title">Nothing here yet</p>
+              <p class="preview-empty-text">Drop a PDF on the left, then convert. Output appears here.</p>
+            </div>
+          </div>
+
+          <div id="preview-skeleton" class="preview-skeleton" hidden aria-hidden="true">
+            <div class="sk-line sk-w-72"></div>
+            <div class="sk-line sk-w-90"></div>
+            <div class="sk-line sk-w-64"></div>
+            <div class="sk-gap"></div>
+            <div class="sk-line sk-w-84"></div>
+            <div class="sk-line sk-w-76"></div>
+            <div class="sk-line sk-w-58"></div>
+            <div class="sk-gap"></div>
+            <div class="sk-line sk-w-88"></div>
+            <div class="sk-line sk-w-70"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <p class="foot-copy">Runs on this computer. Your files stay local.</p>
+    </footer>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
