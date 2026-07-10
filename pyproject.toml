@@ -8,6 +8,11 @@ version = "0.1.0"
 description = "Convert PDF documents to Markdown with hybrid digital extraction and OCR."
 readme = "README.md"
 requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "Praisel Ekpenyong" },
+]
+urls = { Homepage = "https://github.com/praisel-ekpenyong/pdf-to-md", Repository = "https://github.com/praisel-ekpenyong/pdf-to-md" }
 dependencies = [
   "pdfplumber>=0.11.0",
   "pypdf>=4.0.0",

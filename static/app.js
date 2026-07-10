@@ -293,22 +293,17 @@
 
       if (dig && ocr) {
         setStatus("ok", "Ready", "Ready to convert");
-        renderHealthBanner(null);
+        renderHealthBanner();
       } else if (dig) {
+        // Text extraction works; no OCR banner (status pill is enough).
         setStatus("ok", "Ready · text PDFs", "Text-based PDFs are supported; scanned documents require OCR setup");
-        renderHealthBanner({
-          kind: "warn",
-          strong: "OCR is not configured for scanned documents.",
-          hint: "Text-based PDFs can be converted now. Scanned pages require an additional one-time setup.",
-          help: true,
-        });
+        renderHealthBanner();
       } else {
         setStatus("warn", "Unavailable", "Conversion service is limited");
         renderHealthBanner({
           kind: "err",
           strong: "Conversion is not fully available.",
           hint: "Verify that the application is installed correctly.",
-          help: false,
         });
       }
     } catch {
@@ -317,13 +312,14 @@
         kind: "err",
         strong: "Unable to connect to the server.",
         hint: "Start the application and refresh this page.",
-        help: false,
       });
     }
   }
 
-  function renderHealthBanner({ kind, strong, hint, help } = {}) {
+  function renderHealthBanner(opts) {
     if (!els.healthBanner) return;
+    // Accept null/undefined — do not destructure null (throws TypeError → false Offline).
+    const { kind, strong, hint } = opts || {};
     if (!strong) {
       els.healthBanner.hidden = true;
       els.healthBanner.innerHTML = "";
@@ -332,16 +328,9 @@
     els.healthBanner.hidden = false;
     const inner = document.createElement("div");
     inner.className = "alert-inner " + (kind || "");
-    let html = `<strong>${escapeHtml(strong)}</strong>` +
+    inner.innerHTML =
+      `<strong>${escapeHtml(strong)}</strong>` +
       (hint ? `<span class="hint-line">${escapeHtml(hint)}</span>` : "");
-    if (help) {
-      html +=
-        `<details>` +
-        `<summary>Enable OCR for scanned documents</summary>` +
-        `<p class="help-body">${escapeHtml(SCAN_HELP)}</p>` +
-        `</details>`;
-    }
-    inner.innerHTML = html;
     els.healthBanner.innerHTML = "";
     els.healthBanner.appendChild(inner);
   }

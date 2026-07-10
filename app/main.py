@@ -11,10 +11,11 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # Ensure project root is on sys.path when launched via uvicorn from elsewhere
 _ROOT = Path(__file__).resolve().parent.parent
@@ -63,6 +64,23 @@ def create_app() -> FastAPI:
             return FileResponse(path)
 
         app.mount("/static", StaticFiles(directory=str(_STATIC)), name="static")
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(
+        request: Request, exc: StarletteHTTPException
+    ) -> FileResponse | JSONResponse:
+        # Browser navigations get the branded 404; API clients keep JSON.
+        if exc.status_code == 404 and _STATIC.is_dir():
+            accept = request.headers.get("accept", "")
+            wants_html = "text/html" in accept
+            page = _STATIC / "404.html"
+            if wants_html and page.is_file():
+                return FileResponse(page, status_code=404)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+            headers=getattr(exc, "headers", None),
+        )
 
     return app
 

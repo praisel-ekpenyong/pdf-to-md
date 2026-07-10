@@ -206,6 +206,17 @@ pytest
 
 ---
 
+## Author
+
+**Praisel Ekpenyong**  
+GitHub: [praisel-ekpenyong](https://github.com/praisel-ekpenyong)
+
+Maintained as an open-source local PDF to Markdown tool.
+
+---
+
 ## License
 
-Available for personal and commercial use.
+This project is licensed under the [MIT License](LICENSE).
+
+Copyright (c) 2026 Praisel Ekpenyong.
