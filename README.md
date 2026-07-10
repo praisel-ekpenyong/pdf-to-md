@@ -33,8 +33,9 @@ Choose one of the two setup options below.
 
 | Option | Best if you… | Supports scanned PDFs |
 |--------|----------------|------------------------|
-| **A — Docker** (recommended) | Want the simplest full setup | Yes (included) |
+| **A — Docker** (recommended) | Want the simplest full setup on your machine | Yes (included) |
 | **B — Python only** | Prefer not to use Docker | Text PDFs only, unless you install extra tools |
+| **C — Render (free)** | Want a public URL with no local server | Yes (included in Docker image) |
 
 You will also need a modern web browser (Chrome, Edge, Firefox, or Safari).
 
@@ -129,6 +130,39 @@ The label in the top-right of the page shows whether the service is ready:
 - Large files or multi-page scans may take several minutes.
 - If the result is empty, the PDF may be image-based and OCR may not be configured yet.
 - The address `127.0.0.1` means “this computer only.” Other people on the internet cannot reach your app through that link under the default setup.
+
+---
+
+## Option C — Deploy free on Render
+
+Host the full app (API + UI + OCR) on [Render](https://render.com)’s free web service tier. This uses the project `Dockerfile` and `render.yaml`.
+
+### What you get
+
+| | |
+|--|--|
+| **Cost** | Free instance type (`plan: free`) |
+| **URL** | Public `https://….onrender.com` with HTTPS |
+| **OCR** | Included (Tesseract + Poppler in the image) |
+
+### Limits (free tier)
+
+- The service **sleeps after ~15 minutes** of no traffic. The first request after sleep can take about a minute.
+- Free instance hours are limited per month (see [Render free docs](https://render.com/docs/free)).
+- Large or heavily scanned PDFs may be slow or fail on small free resources.
+- Files are processed on Render’s servers, **not** only on your machine. Do not upload confidential documents unless you accept that.
+
+### Deploy steps
+
+1. Push this repository to **GitHub** (or GitLab / Bitbucket).
+2. Sign up at [render.com](https://render.com) (no credit card required for free).
+3. **New → Blueprint** → connect the repo. Render reads `render.yaml`.
+4. Confirm the **Free** plan and create the service.
+5. Wait for the Docker build to finish, then open the service URL.
+
+**Manual alternative:** **New → Web Service** → connect the repo → Runtime **Docker** → instance type **Free** → set env `PDF_TO_MD_MAX_UPLOAD_MB=25` → Deploy.
+
+After deploy, check `https://YOUR-SERVICE.onrender.com/health` — status should show ready with OCR when Tesseract/Poppler are present.
 
 ---
 

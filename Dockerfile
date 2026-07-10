@@ -21,7 +21,9 @@ COPY app ./app
 COPY static ./static
 COPY pyproject.toml README.md ./
 
+# Render and similar hosts inject PORT; local Docker defaults to 8000
+ENV PORT=8000
 EXPOSE 8000
 
 # Single worker so in-memory jobs stay consistent; scale via external queue later
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]

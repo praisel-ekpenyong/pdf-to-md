@@ -1,0 +1,16 @@
+# Render Blueprint — free-tier deploy for PDF → Markdown
+# Dashboard: https://dashboard.render.com → New → Blueprint
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: pdf-to-md
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      # Keep uploads modest on free CPU/RAM
+      - key: PDF_TO_MD_MAX_UPLOAD_MB
+        value: "25"

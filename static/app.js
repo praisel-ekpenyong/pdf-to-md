@@ -1,6 +1,7 @@
 /**
- * PDF to Markdown — web UI
- * Upload → convert (async job) → copy / download
+ * PDF → Markdown — web UI
+ * Stage 1: hero dropzone. Stage 2: side-by-side work.
+ * Upload → async job poll → copy / download.
  */
 (() => {
   "use strict";
@@ -19,16 +20,16 @@
     "Use Docker Compose, or install Tesseract and Poppler. Text-based PDFs convert without these tools.";
 
   const els = {
+    sprout: $("sprout"),
+    sproutBar: $("sprout-bar"),
     dropzone: $("dropzone"),
     fileInput: $("file-input"),
-    uploaderIdle: $("uploader-idle"),
-    uploaderFile: $("uploader-file"),
-    fileName: $("file-name"),
-    fileSize: $("file-size"),
     btnClear: $("btn-clear"),
     btnConvert: $("btn-convert"),
     btnDownload: $("btn-download"),
     btnCopy: $("btn-copy"),
+    fileName: $("file-name"),
+    fileSize: $("file-size"),
     output: $("output"),
     previewEmpty: $("preview-empty"),
     previewSkeleton: $("preview-skeleton"),
@@ -43,6 +44,12 @@
     warnings: $("warnings"),
     panelResult: $("panel-result"),
     resultActions: $("result-actions"),
+    hero: $("hero"),
+    work: $("work"),
+    facts: $("facts"),
+    factPages: $("fact-pages"),
+    factOcr: $("fact-ocr"),
+    factSource: $("fact-source"),
   };
 
   let selectedFile = null;
@@ -50,12 +57,14 @@
   let lastSourceName = "";
   let pollTimer = null;
 
+  /* ----- helpers --------------------------------------------------------- */
+
   function escapeHtml(s) {
     return String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
+      .replace(/&/g, "\u0026amp;")
+      .replace(/</g, "\u0026lt;")
+      .replace(/>/g, "\u0026gt;")
+      .replace(/"/g, "\u0026quot;");
   }
 
   function formatSize(bytes) {
@@ -63,6 +72,14 @@
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   }
+
+  function setSprout(state, width) {
+    if (!els.sprout) return;
+    els.sprout.dataset.state = state;
+    if (typeof width === "number") els.sproutBar.style.width = `${width}%`;
+  }
+
+  /* ----- status ---------------------------------------------------------- */
 
   function setStatus(kind, label, title) {
     els.statusPill.className = `status status-${kind}`;
@@ -111,8 +128,7 @@
 
     let html = "";
     if (friendly.length) {
-      html +=
-        "<ul>" + friendly.map((w) => `<li>${escapeHtml(w)}</li>`).join("") + "</ul>";
+      html += "<ul>" + friendly.map((w) => `<li>${escapeHtml(w)}</li>`).join("") + "</ul>";
     }
     if (needsHelp) {
       html +=
@@ -126,6 +142,8 @@
     els.warnings.innerHTML = html;
   }
 
+  /* ----- preview / result ------------------------------------------------ */
+
   function setSkeleton(on) {
     if (!els.previewSkeleton) return;
     els.previewSkeleton.hidden = !on;
@@ -137,6 +155,8 @@
     if (els.previewEmpty) {
       const skeletonOn = els.previewSkeleton && !els.previewSkeleton.hidden;
       els.previewEmpty.style.display = isEmpty && !skeletonOn ? "" : "none";
+    } else if (!isEmpty && els.previewEmpty) {
+      els.previewEmpty.hidden = true;
     }
   }
 
@@ -166,6 +186,22 @@
     els.meta.hidden = false;
   }
 
+  function setFacts({ pages, ocrPages, source } = {}) {
+    if (pages == null && ocrPages == null && !source) {
+      els.facts.hidden = true;
+      return;
+    }
+    els.facts.hidden = false;
+    if (pages != null) els.factPages.textContent = String(pages);
+    if (ocrPages != null) {
+      const arr = Array.isArray(ocrPages) ? ocrPages : [];
+      els.factOcr.textContent = arr.length ? arr.join(", ") : "—";
+    }
+    if (source) els.factSource.textContent = source;
+  }
+
+  /* ----- busy / progress ------------------------------------------------- */
+
   function setBusy(busy) {
     if (!busy) {
       if (pollTimer) {
@@ -176,6 +212,8 @@
       setSkeleton(false);
       setPreviewEmpty(!lastMarkdown);
       setResultState(lastMarkdown ? "ready" : "empty");
+      setSprout("done", 100);
+      window.setTimeout(() => setSprout("off", 0), 600);
     } else {
       els.progressWrap.hidden = false;
       setSkeleton(true);
@@ -183,6 +221,7 @@
       els.output.classList.add("is-empty");
       setResultState("busy");
       setMeta(null);
+      setSprout("on", 4);
     }
     els.btnConvert.disabled = busy || !selectedFile;
     els.btnConvert.setAttribute("aria-busy", busy ? "true" : "false");
@@ -192,15 +231,14 @@
     if (els.btnClear) els.btnClear.disabled = busy;
 
     const label = els.btnConvert && els.btnConvert.querySelector(".btn-label");
-    if (label) {
-      label.textContent = busy ? "Converting…" : "Convert";
-    }
+    if (label) label.textContent = busy ? "Converting…" : "Convert";
   }
 
   function setProgress(pct, message) {
     els.progressWrap.hidden = false;
     const p = Math.max(0, Math.min(100, pct || 0));
     els.progressBar.style.width = `${p}%`;
+    setSprout("on", p);
     const track = els.progressWrap.querySelector(".progress-track");
     if (track) track.setAttribute("aria-valuenow", String(Math.round(p)));
     let msg = message || "Processing…";
@@ -214,6 +252,18 @@
     if (els.progressPct) els.progressPct.textContent = `${Math.round(p)}%`;
   }
 
+  /* ----- file handling --------------------------------------------------- */
+
+  function showStage(stage) {
+    if (stage === "work") {
+      els.hero.hidden = true;
+      els.work.hidden = false;
+    } else {
+      els.hero.hidden = false;
+      els.work.hidden = true;
+    }
+  }
+
   function clearFile(e) {
     if (e) {
       e.preventDefault();
@@ -221,11 +271,17 @@
     }
     selectedFile = null;
     els.fileInput.value = "";
-    els.dropzone.classList.remove("has-file");
-    els.uploaderIdle.hidden = false;
-    els.uploaderFile.hidden = true;
-    els.btnConvert.disabled = true;
+    lastMarkdown = "";
     setError("");
+    setWarnings([]);
+    setMeta(null);
+    setFacts({});
+    setResultState("empty");
+    setResultActionsIdle(true);
+    setOutput("", { empty: true });
+    els.progressWrap.hidden = true;
+    setSprout("off", 0);
+    showStage("hero");
     els.dropzone.focus();
   }
 
@@ -236,13 +292,21 @@
       return;
     }
     selectedFile = file;
-    els.dropzone.classList.add("has-file");
-    els.uploaderIdle.hidden = true;
-    els.uploaderFile.hidden = false;
     els.fileName.textContent = file.name;
     els.fileSize.textContent = formatSize(file.size);
-    els.btnConvert.disabled = false;
+    setFacts({ source: file.name, pages: null, ocrPages: null });
+    els.factPages.textContent = "—";
+    els.factOcr.textContent = "—";
     setError("");
+    setWarnings([]);
+    setOutput("", { empty: true });
+    setResultState("empty");
+    setResultActionsIdle(true);
+    setMeta(null);
+    els.progressWrap.hidden = true;
+    els.btnConvert.disabled = false;
+    showStage("work");
+    if (navigator.vibrate) navigator.vibrate(8);
   }
 
   function buildFormData() {
@@ -255,6 +319,8 @@
     return fd;
   }
 
+  /* ----- health ---------------------------------------------------------- */
+
   async function refreshHealth() {
     try {
       const res = await fetch("/health");
@@ -265,42 +331,63 @@
 
       if (dig && ocr) {
         setStatus("ok", "Ready", "Ready to convert");
-        els.healthBanner.hidden = true;
+        renderHealthBanner(null);
       } else if (dig) {
-        setStatus(
-          "ok",
-          "Ready · text PDFs",
-          "Text-based PDFs are supported; scanned documents require OCR setup"
-        );
-        els.healthBanner.hidden = false;
-        els.healthBanner.className = "banner warn";
-        els.healthBanner.innerHTML =
-          `<strong>OCR is not configured for scanned documents.</strong>` +
-          `<span class="hint-line">Text-based PDFs can be converted now. Scanned pages require an additional one-time setup.</span>` +
-          `<details>` +
-          `<summary>Enable OCR for scanned documents</summary>` +
-          `<p class="help-body">${escapeHtml(SCAN_HELP)}</p>` +
-          `</details>`;
+        setStatus("ok", "Ready · text PDFs", "Text-based PDFs are supported; scanned documents require OCR setup");
+        renderHealthBanner({
+          kind: "warn",
+          strong: "OCR is not configured for scanned documents.",
+          hint: "Text-based PDFs can be converted now. Scanned pages require an additional one-time setup.",
+          help: true,
+        });
       } else {
         setStatus("warn", "Unavailable", "Conversion service is limited");
-        els.healthBanner.hidden = false;
-        els.healthBanner.className = "banner warn";
-        els.healthBanner.textContent =
-          "Conversion is not fully available. Verify that the application is installed correctly.";
+        renderHealthBanner({
+          kind: "err",
+          strong: "Conversion is not fully available.",
+          hint: "Verify that the application is installed correctly.",
+          help: false,
+        });
       }
     } catch {
       setStatus("err", "Offline", "Unable to reach the server");
-      els.healthBanner.hidden = false;
-      els.healthBanner.className = "banner err";
-      els.healthBanner.textContent =
-        "Unable to connect to the server. Start the application and refresh this page.";
+      renderHealthBanner({
+        kind: "err",
+        strong: "Unable to connect to the server.",
+        hint: "Start the application and refresh this page.",
+        help: false,
+      });
     }
   }
 
+  function renderHealthBanner({ kind, strong, hint, help } = {}) {
+    if (!strong) {
+      els.healthBanner.hidden = true;
+      els.healthBanner.innerHTML = "";
+      return;
+    }
+    els.healthBanner.hidden = false;
+    const inner = document.createElement("div");
+    inner.className = "alert-inner " + (kind || "");
+    let html = `<strong>${escapeHtml(strong)}</strong>` +
+      (hint ? `<span class="hint-line">${escapeHtml(hint)}</span>` : "");
+    if (help) {
+      html +=
+        `<details>` +
+        `<summary>Enable OCR for scanned documents</summary>` +
+        `<p class="help-body">${escapeHtml(SCAN_HELP)}</p>` +
+        `</details>`;
+    }
+    inner.innerHTML = html;
+    els.healthBanner.innerHTML = "";
+    els.healthBanner.appendChild(inner);
+  }
+
+  /* ----- result / poll --------------------------------------------------- */
+
   function applyResult(body) {
     lastMarkdown = body.markdown || "";
-    lastSourceName =
-      body.source_name || (selectedFile && selectedFile.name) || "document.pdf";
+    lastSourceName = body.source_name || (selectedFile && selectedFile.name) || "document.pdf";
 
     const empty = !lastMarkdown || !String(lastMarkdown).trim();
     setOutput(
@@ -311,15 +398,20 @@
     if (!empty) {
       setMeta(body.page_count);
       setResultState("ready");
+      setFacts({
+        pages: body.page_count,
+        ocrPages: body.ocr_pages,
+        source: lastSourceName,
+      });
     } else {
       setMeta(null);
       setResultState("empty");
+      setFacts({});
     }
 
     const warns = body.warnings || [];
     setWarnings(warns, {
-      showScanHelp:
-        empty || warns.some((w) => /ocr|tesseract|poppler|scan/i.test(String(w))),
+      showScanHelp: empty || warns.some((w) => /ocr|tesseract|poppler|scan/i.test(String(w))),
     });
 
     els.btnDownload.disabled = empty;
@@ -347,8 +439,7 @@
         throw new Error("An unexpected error occurred. Please try again.");
       }
       if (!res.ok) {
-        const detail =
-          typeof body.detail === "string" ? body.detail : "Conversion failed.";
+        const detail = typeof body.detail === "string" ? body.detail : "Conversion failed.";
         throw new Error(detail);
       }
 
@@ -376,6 +467,7 @@
     setWarnings([]);
     setOutput("", { empty: true });
     setMeta(null);
+    setFacts({ source: selectedFile.name });
     lastMarkdown = "";
     setProgress(4, "Uploading…");
 
@@ -391,10 +483,7 @@
         body = { detail: "Upload failed." };
       }
       if (!res.ok) {
-        const detail =
-          typeof body.detail === "string"
-            ? body.detail
-            : "Unable to start conversion.";
+        const detail = typeof body.detail === "string" ? body.detail : "Unable to start conversion.";
         throw new Error(detail);
       }
       setProgress(8, "Queued…");
@@ -409,20 +498,17 @@
       setResultState("empty");
       setMeta(null);
       els.progressWrap.hidden = true;
+      setSprout("off", 0);
     } finally {
       setBusy(false);
-      if (lastMarkdown) {
-        els.progressWrap.hidden = true;
-      }
+      if (lastMarkdown) els.progressWrap.hidden = true;
     }
   }
 
   function downloadMd() {
     if (!lastMarkdown) return;
     const stem = (lastSourceName || "document").replace(/\.pdf$/i, "");
-    const blob = new Blob([lastMarkdown], {
-      type: "text/markdown;charset=utf-8",
-    });
+    const blob = new Blob([lastMarkdown], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -435,19 +521,21 @@
     if (!lastMarkdown) return;
     try {
       await navigator.clipboard.writeText(lastMarkdown);
-      const prev = els.btnCopy.textContent;
-      els.btnCopy.textContent = "Copied";
-      setTimeout(() => {
-        els.btnCopy.textContent = prev;
-      }, 1400);
+      const label = els.btnCopy.querySelector("span");
+      if (label) {
+        const prev = label.textContent;
+        label.textContent = "Copied";
+        setTimeout(() => { label.textContent = prev; }, 1400);
+      }
     } catch {
       setError("Unable to copy to the clipboard. Use Download instead.");
     }
   }
 
-  els.dropzone.addEventListener("click", (e) => {
-    if (e.target.closest("#btn-clear")) return;
-    if (selectedFile && e.target.closest(".dropzone-file, .uploader-file")) return;
+  /* ----- events ---------------------------------------------------------- */
+
+  els.dropzone.addEventListener("click", () => {
+    if (selectedFile) return;
     els.fileInput.click();
   });
 
@@ -489,8 +577,13 @@
   els.btnDownload.addEventListener("click", downloadMd);
   els.btnCopy.addEventListener("click", copyMd);
 
-  setPreviewEmpty(true);
+  /* ----- init ----------------------------------------------------------- */
+
+  showStage("hero");
   setResultState("empty");
   setResultActionsIdle(true);
+  setPreviewEmpty(true);
+  setSprout("off", 0);
+  els.btnConvert.disabled = true;
   refreshHealth();
 })();
