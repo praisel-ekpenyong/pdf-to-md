@@ -18,6 +18,7 @@ class HealthResponse(BaseModel):
     ocr_ready: bool
     messages: list[str] = Field(default_factory=list)
     hints: list[str] = Field(default_factory=list)
+    max_upload_mb: int = 25
 
 
 class ConvertResponse(BaseModel):

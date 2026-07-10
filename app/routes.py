@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import PlainTextResponse
 
-from app.jobs import job_store
+from app.jobs import JobQueueFullError, job_store
 from app.schemas import (
     ConvertResponse,
     HealthResponse,
@@ -29,9 +31,34 @@ router = APIRouter()
 DEFAULT_MAX_UPLOAD_MB = 25
 
 
+def _max_upload_mb() -> int:
+    try:
+        mb = int(os.environ.get("PDF_TO_MD_MAX_UPLOAD_MB", DEFAULT_MAX_UPLOAD_MB))
+    except ValueError:
+        mb = DEFAULT_MAX_UPLOAD_MB
+    return max(1, mb)
+
+
 def _max_upload_bytes() -> int:
-    mb = int(os.environ.get("PDF_TO_MD_MAX_UPLOAD_MB", DEFAULT_MAX_UPLOAD_MB))
-    return max(1, mb) * 1024 * 1024
+    return _max_upload_mb() * 1024 * 1024
+
+
+def _safe_download_stem(name: str) -> str:
+    """ASCII-safe filename stem for Content-Disposition filename=."""
+    stem = Path(name or "document").stem
+    safe = re.sub(r"[^\w.\-]+", "_", stem, flags=re.UNICODE).strip("._")
+    return (safe[:80] or "document")
+
+
+def _content_disposition(md_filename: str) -> str:
+    """Build a safe Content-Disposition with ASCII fallback + RFC 5987 UTF-8."""
+    stem = Path(md_filename).stem if md_filename else "document"
+    ascii_stem = _safe_download_stem(stem)
+    ascii_name = f"{ascii_stem}.md"
+    # Prefer original stem for UTF-8 filename* when it differs.
+    raw_name = f"{(stem or 'document')[:120]}.md"
+    utf8_name = quote(raw_name, safe="")
+    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{utf8_name}"
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -48,6 +75,7 @@ def health() -> HealthResponse:
         ocr_ready=report.ocr_ready,
         messages=report.messages,
         hints=report.hints,
+        max_upload_mb=_max_upload_mb(),
     )
 
 
@@ -134,11 +162,11 @@ async def convert_download(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Conversion failed: {exc}") from exc
 
-    md_name = Path(name).stem + ".md"
+    md_name = f"{Path(name).stem}.md"
     return PlainTextResponse(
         content=result.markdown,
         media_type="text/markdown; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{md_name}"'},
+        headers={"Content-Disposition": _content_disposition(md_name)},
     )
 
 
@@ -153,7 +181,10 @@ async def create_job(
     """Enqueue conversion. Poll GET /jobs/{job_id} for progress and result."""
     data, name = await _read_upload(file)
     opts = _options_from_form(lang, force_ocr, ocr_dpi, min_chars)
-    job = job_store.create(data, name, opts)
+    try:
+        job = job_store.create(data, name, opts)
+    except JobQueueFullError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     return JobCreateResponse(job_id=job.id, status=job.status.value, message=job.message)
 
 
@@ -170,7 +201,7 @@ def download_job_markdown(job_id: str) -> PlainTextResponse:
     job = job_store.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
-    if job.status.value != "completed" or not job.markdown:
+    if job.status.value != "completed" or job.markdown is None:
         raise HTTPException(
             status_code=409,
             detail=f"Job is not ready for download (status={job.status.value}).",
@@ -179,5 +210,5 @@ def download_job_markdown(job_id: str) -> PlainTextResponse:
     return PlainTextResponse(
         content=job.markdown,
         media_type="text/markdown; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{stem}.md"'},
+        headers={"Content-Disposition": _content_disposition(f"{stem}.md")},
     )

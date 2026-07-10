@@ -96,8 +96,12 @@ def convert_file(
     except Exception as exc:
         raise ConversionError(f"Failed to read PDF: {exc}") from exc
 
-    if not text_pages and options.force_ocr:
-        text_pages = [""]
+    # Invalid or unreadable payloads often yield zero pages with no exception.
+    if not text_pages:
+        raise ConversionError(
+            "Could not read this file as a PDF (no pages found). "
+            "Confirm the file is a valid PDF and try again."
+        )
 
     threshold = options.page_warn_threshold
     if threshold is not None and len(text_pages) > threshold:
@@ -219,6 +223,12 @@ def convert_bytes(
         raise ConversionError("Empty PDF payload.")
     if not filename.lower().endswith(".pdf"):
         filename = f"{filename}.pdf" if filename else "document.pdf"
+    # Quick structural check before writing temp files / parsing.
+    if b"%PDF" not in data[:1024]:
+        raise ConversionError(
+            "Not a valid PDF file (missing PDF header). "
+            "Upload a real .pdf document."
+        )
 
     options = options or ConvertOptions()
 

@@ -63,6 +63,10 @@ class Job:
         return data
 
 
+class JobQueueFullError(RuntimeError):
+    """Raised when the in-memory job store cannot accept more work."""
+
+
 class JobStore:
     """Thread-safe in-memory jobs with a small worker pool."""
 
@@ -82,6 +86,11 @@ class JobStore:
         job = Job(id=job_id, source_name=filename, message="Queued")
         with self._lock:
             self._prune_unlocked()
+            if len(self._jobs) >= self._max_jobs:
+                raise JobQueueFullError(
+                    f"Job queue is full ({self._max_jobs} jobs). "
+                    "Wait for existing conversions to finish, then try again."
+                )
             self._jobs[job_id] = job
 
         self._executor.submit(self._run, job_id, data, filename, options)
@@ -94,7 +103,8 @@ class JobStore:
     def _prune_unlocked(self) -> None:
         if len(self._jobs) < self._max_jobs:
             return
-        # Drop oldest completed/failed first
+        # Drop oldest finished jobs first, then oldest queued (never running).
+        overflow = len(self._jobs) - self._max_jobs + 1
         finished = sorted(
             (
                 j
@@ -103,7 +113,20 @@ class JobStore:
             ),
             key=lambda j: j.updated_at,
         )
-        for j in finished[: max(1, len(self._jobs) - self._max_jobs + 1)]:
+        removed = 0
+        for j in finished:
+            if removed >= overflow:
+                break
+            self._jobs.pop(j.id, None)
+            removed += 1
+        if removed >= overflow:
+            return
+        still_need = overflow - removed
+        queued = sorted(
+            (j for j in self._jobs.values() if j.status == JobStatus.queued),
+            key=lambda j: j.created_at,
+        )
+        for j in queued[:still_need]:
             self._jobs.pop(j.id, None)
 
     def _update(self, job_id: str, **kwargs: Any) -> None:

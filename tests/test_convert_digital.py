@@ -41,6 +41,16 @@ def test_convert_bytes_empty():
         convert_bytes(b"")
 
 
+def test_convert_bytes_rejects_non_pdf():
+    with pytest.raises(ConversionError, match="valid PDF|PDF header"):
+        convert_bytes(b"not a pdf at all", ConvertOptions(), filename="x.pdf")
+
+
+def test_convert_bytes_rejects_missing_header():
+    with pytest.raises(ConversionError, match="PDF header|valid PDF"):
+        convert_bytes(b"\x00\x01\x02fake", ConvertOptions(), filename="y.pdf")
+
+
 def test_probe_dependencies_shape():
     report = probe_dependencies()
     assert hasattr(report, "ocr_ready")
@@ -55,3 +65,24 @@ def test_probe_dependencies_shape():
 def test_poppler_bin_dir():
     assert poppler_bin_dir(None) is None
     assert poppler_bin_dir(r"C:\poppler\Library\bin\pdftoppm.exe") == r"C:\poppler\Library\bin"
+
+
+def test_job_queue_full_rejects():
+    from app.jobs import Job, JobQueueFullError, JobStatus, JobStore
+    from pdf_to_md import ConvertOptions
+
+    store = JobStore(max_workers=1, max_jobs=2)
+    with store._lock:
+        store._jobs["a"] = Job(id="a", status=JobStatus.running)
+        store._jobs["b"] = Job(id="b", status=JobStatus.running)
+    with pytest.raises(JobQueueFullError):
+        store.create(b"%PDF-1.4 fake", "x.pdf", ConvertOptions())
+
+
+def test_content_disposition_sanitizes_quotes():
+    from app.routes import _content_disposition
+
+    header = _content_disposition('report"evil.md')
+    assert "\r" not in header and "\n" not in header
+    assert 'filename="report_evil.md"' in header or 'filename="report.md"' in header
+    assert "filename*=UTF-8''" in header

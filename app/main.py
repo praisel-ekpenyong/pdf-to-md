@@ -47,11 +47,22 @@ def create_app() -> FastAPI:
     app.include_router(router)
 
     if _STATIC.is_dir():
-        app.mount("/static", StaticFiles(directory=str(_STATIC)), name="static")
-
+        # Register HTML pages BEFORE the static mount so paths never get swallowed.
         @app.get("/", include_in_schema=False)
         def index() -> FileResponse:
             return FileResponse(_STATIC / "index.html")
+
+        @app.get("/output", include_in_schema=False)
+        @app.get("/output/", include_in_schema=False)
+        def output_page() -> FileResponse:
+            path = _STATIC / "output.html"
+            if not path.is_file():
+                from fastapi import HTTPException
+
+                raise HTTPException(status_code=404, detail="Output page is not installed.")
+            return FileResponse(path)
+
+        app.mount("/static", StaticFiles(directory=str(_STATIC)), name="static")
 
     return app
 

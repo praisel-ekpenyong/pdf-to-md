@@ -1,7 +1,7 @@
 /**
- * PDF → Markdown — web UI
- * Stage 1: hero dropzone. Stage 2: side-by-side work.
- * Upload → async job poll → copy / download.
+ * PDF → Markdown — home page
+ * Stage 1: hero dropzone. Stage 2: file strip + Convert + progress.
+ * On success, stashes the job_id and navigates to /output.
  */
 (() => {
   "use strict";
@@ -26,36 +26,30 @@
     fileInput: $("file-input"),
     btnClear: $("btn-clear"),
     btnConvert: $("btn-convert"),
-    btnDownload: $("btn-download"),
-    btnCopy: $("btn-copy"),
     fileName: $("file-name"),
     fileSize: $("file-size"),
-    output: $("output"),
-    previewEmpty: $("preview-empty"),
-    previewSkeleton: $("preview-skeleton"),
-    meta: $("meta"),
-    error: $("error"),
     progressWrap: $("progress-wrap"),
     progress: $("progress"),
     progressPct: $("progress-pct"),
     progressBar: $("progress-bar"),
     statusPill: $("status-pill"),
     healthBanner: $("health-banner"),
+    error: $("error"),
     warnings: $("warnings"),
-    panelResult: $("panel-result"),
-    resultActions: $("result-actions"),
     hero: $("hero"),
     work: $("work"),
     facts: $("facts"),
     factPages: $("fact-pages"),
     factOcr: $("fact-ocr"),
     factSource: $("fact-source"),
+    resultLink: $("result-link"),
+    uploadLimit: $("upload-limit"),
   };
 
   let selectedFile = null;
-  let lastMarkdown = "";
-  let lastSourceName = "";
   let pollTimer = null;
+  let lastJobId = null;
+  let maxUploadMb = 25;
 
   /* ----- helpers --------------------------------------------------------- */
 
@@ -76,12 +70,13 @@
   function setSprout(state, width) {
     if (!els.sprout) return;
     els.sprout.dataset.state = state;
-    if (typeof width === "number") els.sproutBar.style.width = `${width}%`;
+    if (typeof width === "number" && els.sproutBar) els.sproutBar.style.width = `${width}%`;
   }
 
   /* ----- status ---------------------------------------------------------- */
 
   function setStatus(kind, label, title) {
+    if (!els.statusPill) return;
     els.statusPill.className = `status status-${kind}`;
     const labelEl = els.statusPill.querySelector(".status-label");
     if (labelEl) labelEl.textContent = label;
@@ -89,6 +84,7 @@
   }
 
   function setError(msg) {
+    if (!els.error) return;
     if (!msg) {
       els.error.hidden = true;
       els.error.textContent = "";
@@ -115,6 +111,7 @@
   }
 
   function setWarnings(list, { showScanHelp = false } = {}) {
+    if (!els.warnings) return;
     const friendly = humanizeWarnings(list);
     const needsHelp =
       showScanHelp ||
@@ -142,62 +139,20 @@
     els.warnings.innerHTML = html;
   }
 
-  /* ----- preview / result ------------------------------------------------ */
-
-  function setSkeleton(on) {
-    if (!els.previewSkeleton) return;
-    els.previewSkeleton.hidden = !on;
-    els.previewSkeleton.setAttribute("aria-hidden", on ? "false" : "true");
-  }
-
-  function setPreviewEmpty(isEmpty) {
-    els.output.classList.toggle("is-empty", isEmpty);
-    if (els.previewEmpty) {
-      const skeletonOn = els.previewSkeleton && !els.previewSkeleton.hidden;
-      els.previewEmpty.style.display = isEmpty && !skeletonOn ? "" : "none";
-    } else if (!isEmpty && els.previewEmpty) {
-      els.previewEmpty.hidden = true;
-    }
-  }
-
-  function setOutput(text, { empty = false } = {}) {
-    els.output.textContent = empty ? "" : text;
-    if (!empty) setSkeleton(false);
-    setPreviewEmpty(empty);
-  }
-
-  function setResultState(state) {
-    if (els.panelResult) els.panelResult.dataset.state = state;
-  }
-
-  function setResultActionsIdle(idle) {
-    if (els.resultActions) els.resultActions.dataset.idle = idle ? "true" : "false";
-  }
-
-  function setMeta(pageCount) {
-    if (!els.meta) return;
-    if (pageCount == null) {
-      els.meta.hidden = true;
-      els.meta.textContent = "";
-      return;
-    }
-    const n = pageCount;
-    els.meta.textContent = `${n} page${n === 1 ? "" : "s"}`;
-    els.meta.hidden = false;
-  }
+  /* ----- facts ----------------------------------------------------------- */
 
   function setFacts({ pages, ocrPages, source } = {}) {
     if (pages == null && ocrPages == null && !source) {
-      els.facts.hidden = true;
+      if (els.facts) els.facts.hidden = true;
       return;
     }
-    els.facts.hidden = false;
-    if (pages != null) els.factPages.textContent = String(pages);
-    if (ocrPages != null) {
+    if (els.facts) els.facts.hidden = false;
+    if (pages != null && els.factPages) els.factPages.textContent = String(pages);
+    if (ocrPages != null && els.factOcr) {
       const arr = Array.isArray(ocrPages) ? ocrPages : [];
       els.factOcr.textContent = arr.length ? arr.join(", ") : "—";
     }
-    if (source) els.factSource.textContent = source;
+    if (source && els.factSource) els.factSource.textContent = source;
   }
 
   /* ----- busy / progress ------------------------------------------------- */
@@ -208,38 +163,28 @@
         clearTimeout(pollTimer);
         pollTimer = null;
       }
-      if (!lastMarkdown) els.progressWrap.hidden = true;
-      setSkeleton(false);
-      setPreviewEmpty(!lastMarkdown);
-      setResultState(lastMarkdown ? "ready" : "empty");
+      if (els.progressWrap) els.progressWrap.hidden = true;
       setSprout("done", 100);
       window.setTimeout(() => setSprout("off", 0), 600);
     } else {
-      els.progressWrap.hidden = false;
-      setSkeleton(true);
-      if (els.previewEmpty) els.previewEmpty.style.display = "none";
-      els.output.classList.add("is-empty");
-      setResultState("busy");
-      setMeta(null);
+      if (els.progressWrap) els.progressWrap.hidden = false;
       setSprout("on", 4);
     }
-    els.btnConvert.disabled = busy || !selectedFile;
-    els.btnConvert.setAttribute("aria-busy", busy ? "true" : "false");
-    els.btnDownload.disabled = busy || !lastMarkdown;
-    els.btnCopy.disabled = busy || !lastMarkdown;
-    setResultActionsIdle(busy || !lastMarkdown);
+    if (els.btnConvert) {
+      els.btnConvert.disabled = busy || !selectedFile;
+      els.btnConvert.setAttribute("aria-busy", busy ? "true" : "false");
+    }
     if (els.btnClear) els.btnClear.disabled = busy;
-
     const label = els.btnConvert && els.btnConvert.querySelector(".btn-label");
     if (label) label.textContent = busy ? "Converting…" : "Convert";
   }
 
   function setProgress(pct, message) {
-    els.progressWrap.hidden = false;
+    if (els.progressWrap) els.progressWrap.hidden = false;
     const p = Math.max(0, Math.min(100, pct || 0));
-    els.progressBar.style.width = `${p}%`;
+    if (els.progressBar) els.progressBar.style.width = `${p}%`;
     setSprout("on", p);
-    const track = els.progressWrap.querySelector(".progress-track");
+    const track = els.progressWrap && els.progressWrap.querySelector(".progress-track");
     if (track) track.setAttribute("aria-valuenow", String(Math.round(p)));
     let msg = message || "Processing…";
     if (/ocr page/i.test(msg)) msg = msg.replace(/OCR page/i, "Processing page");
@@ -248,21 +193,40 @@
     if (/extracting digital/i.test(msg)) msg = "Extracting text…";
     if (/uploading/i.test(msg)) msg = "Uploading…";
     if (/complete/i.test(msg)) msg = "Complete";
-    els.progress.textContent = msg;
+    if (els.progress) els.progress.textContent = msg;
     if (els.progressPct) els.progressPct.textContent = `${Math.round(p)}%`;
   }
 
-  /* ----- file handling --------------------------------------------------- */
+  function setResultLink(visible, jobId) {
+    if (!els.resultLink) return;
+    els.resultLink.hidden = !visible;
+    if (visible && jobId) {
+      els.resultLink.href = `/output?job=${encodeURIComponent(jobId)}`;
+    } else if (!visible) {
+      els.resultLink.href = "/output";
+    }
+  }
+
+  function setUploadLimitLabel(mb) {
+    maxUploadMb = mb || 25;
+    if (els.uploadLimit) {
+      els.uploadLimit.textContent = `PDF up to ${maxUploadMb} MB · processed locally`;
+    }
+  }
+
+  /* ----- stage switching ------------------------------------------------- */
 
   function showStage(stage) {
     if (stage === "work") {
-      els.hero.hidden = true;
-      els.work.hidden = false;
+      if (els.hero) els.hero.hidden = true;
+      if (els.work) els.work.hidden = false;
     } else {
-      els.hero.hidden = false;
-      els.work.hidden = true;
+      if (els.hero) els.hero.hidden = false;
+      if (els.work) els.work.hidden = true;
     }
   }
+
+  /* ----- file handling --------------------------------------------------- */
 
   function clearFile(e) {
     if (e) {
@@ -270,19 +234,16 @@
       e.stopPropagation();
     }
     selectedFile = null;
-    els.fileInput.value = "";
-    lastMarkdown = "";
+    lastJobId = null;
+    if (els.fileInput) els.fileInput.value = "";
     setError("");
     setWarnings([]);
-    setMeta(null);
     setFacts({});
-    setResultState("empty");
-    setResultActionsIdle(true);
-    setOutput("", { empty: true });
-    els.progressWrap.hidden = true;
+    setResultLink(false);
+    if (els.progressWrap) els.progressWrap.hidden = true;
     setSprout("off", 0);
     showStage("hero");
-    els.dropzone.focus();
+    if (els.dropzone) els.dropzone.focus();
   }
 
   function setFile(file) {
@@ -292,21 +253,17 @@
       return;
     }
     selectedFile = file;
-    els.fileName.textContent = file.name;
-    els.fileSize.textContent = formatSize(file.size);
+    if (els.fileName) els.fileName.textContent = file.name;
+    if (els.fileSize) els.fileSize.textContent = formatSize(file.size);
     setFacts({ source: file.name, pages: null, ocrPages: null });
-    els.factPages.textContent = "—";
-    els.factOcr.textContent = "—";
+    if (els.factPages) els.factPages.textContent = "—";
+    if (els.factOcr) els.factOcr.textContent = "—";
     setError("");
     setWarnings([]);
-    setOutput("", { empty: true });
-    setResultState("empty");
-    setResultActionsIdle(true);
-    setMeta(null);
-    els.progressWrap.hidden = true;
-    els.btnConvert.disabled = false;
+    setResultLink(false);
+    if (els.progressWrap) els.progressWrap.hidden = true;
+    if (els.btnConvert) els.btnConvert.disabled = false;
     showStage("work");
-    if (navigator.vibrate) navigator.vibrate(8);
   }
 
   function buildFormData() {
@@ -328,6 +285,11 @@
       const data = await res.json();
       const dig = !!data.digital_extract_available;
       const ocr = !!data.ocr_ready;
+      if (typeof data.max_upload_mb === "number" && data.max_upload_mb > 0) {
+        setUploadLimitLabel(data.max_upload_mb);
+      } else {
+        setUploadLimitLabel(25);
+      }
 
       if (dig && ocr) {
         setStatus("ok", "Ready", "Ready to convert");
@@ -361,6 +323,7 @@
   }
 
   function renderHealthBanner({ kind, strong, hint, help } = {}) {
+    if (!els.healthBanner) return;
     if (!strong) {
       els.healthBanner.hidden = true;
       els.healthBanner.innerHTML = "";
@@ -383,40 +346,15 @@
     els.healthBanner.appendChild(inner);
   }
 
-  /* ----- result / poll --------------------------------------------------- */
+  /* ----- progress success: stash & navigate ------------------------------ */
 
-  function applyResult(body) {
-    lastMarkdown = body.markdown || "";
-    lastSourceName = body.source_name || (selectedFile && selectedFile.name) || "document.pdf";
-
-    const empty = !lastMarkdown || !String(lastMarkdown).trim();
-    setOutput(
-      empty ? "No extractable text was found in this PDF." : lastMarkdown,
-      { empty }
-    );
-
-    if (!empty) {
-      setMeta(body.page_count);
-      setResultState("ready");
-      setFacts({
-        pages: body.page_count,
-        ocrPages: body.ocr_pages,
-        source: lastSourceName,
-      });
-    } else {
-      setMeta(null);
-      setResultState("empty");
-      setFacts({});
+  function openOutput(jobId) {
+    try {
+      sessionStorage.setItem("pdfmd:job_id", jobId);
+    } catch {
+      // sessionStorage may be unavailable; fall back to URL param below.
     }
-
-    const warns = body.warnings || [];
-    setWarnings(warns, {
-      showScanHelp: empty || warns.some((w) => /ocr|tesseract|poppler|scan/i.test(String(w))),
-    });
-
-    els.btnDownload.disabled = empty;
-    els.btnCopy.disabled = empty;
-    setResultActionsIdle(empty);
+    window.location.href = `/output?job=${encodeURIComponent(jobId)}`;
   }
 
   function sleep(ms) {
@@ -444,10 +382,19 @@
       }
 
       setProgress(body.progress || 0, body.message || "Processing…");
+      lastJobId = jobId;
 
       if (body.status === "completed") {
-        applyResult(body);
         setProgress(100, "Complete");
+        setFacts({
+          pages: body.page_count,
+          ocrPages: body.ocr_pages,
+          source: body.source_name || (selectedFile && selectedFile.name) || "",
+        });
+        setResultLink(true, jobId);
+        setBusy(false);
+        // Small delay so the user sees the "done" state before navigating.
+        setTimeout(() => openOutput(jobId), 600);
         return;
       }
       if (body.status === "failed") {
@@ -465,10 +412,8 @@
     setBusy(true);
     setError("");
     setWarnings([]);
-    setOutput("", { empty: true });
-    setMeta(null);
+    setResultLink(false);
     setFacts({ source: selectedFile.name });
-    lastMarkdown = "";
     setProgress(4, "Uploading…");
 
     try {
@@ -489,101 +434,72 @@
       setProgress(8, "Queued…");
       await pollJob(body.job_id);
     } catch (err) {
-      setOutput("", { empty: true });
       setError(String(err.message || err));
-      lastMarkdown = "";
-      els.btnDownload.disabled = true;
-      els.btnCopy.disabled = true;
-      setResultActionsIdle(true);
-      setResultState("empty");
-      setMeta(null);
-      els.progressWrap.hidden = true;
+      if (els.progressWrap) els.progressWrap.hidden = true;
       setSprout("off", 0);
-    } finally {
       setBusy(false);
-      if (lastMarkdown) els.progressWrap.hidden = true;
-    }
-  }
-
-  function downloadMd() {
-    if (!lastMarkdown) return;
-    const stem = (lastSourceName || "document").replace(/\.pdf$/i, "");
-    const blob = new Blob([lastMarkdown], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${stem}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  async function copyMd() {
-    if (!lastMarkdown) return;
-    try {
-      await navigator.clipboard.writeText(lastMarkdown);
-      const label = els.btnCopy.querySelector("span");
-      if (label) {
-        const prev = label.textContent;
-        label.textContent = "Copied";
-        setTimeout(() => { label.textContent = prev; }, 1400);
-      }
-    } catch {
-      setError("Unable to copy to the clipboard. Use Download instead.");
     }
   }
 
   /* ----- events ---------------------------------------------------------- */
 
-  els.dropzone.addEventListener("click", () => {
-    if (selectedFile) return;
-    els.fileInput.click();
-  });
-
-  els.dropzone.addEventListener("keydown", (e) => {
-    if ((e.key === "Enter" || e.key === " ") && !selectedFile) {
-      e.preventDefault();
+  if (els.dropzone) {
+    els.dropzone.addEventListener("click", () => {
+      if (selectedFile) return;
       els.fileInput.click();
-    }
-  });
+    });
+    els.dropzone.addEventListener("keydown", (e) => {
+      if ((e.key === "Enter" || e.key === " ") && !selectedFile) {
+        e.preventDefault();
+        els.fileInput.click();
+      }
+    });
+  }
 
-  els.fileInput.addEventListener("change", () => {
-    if (els.fileInput.files && els.fileInput.files[0]) {
-      setFile(els.fileInput.files[0]);
-    }
-  });
+  if (els.fileInput) {
+    els.fileInput.addEventListener("change", () => {
+      if (els.fileInput.files && els.fileInput.files[0]) setFile(els.fileInput.files[0]);
+    });
+  }
 
   if (els.btnClear) els.btnClear.addEventListener("click", clearFile);
+  if (els.btnConvert) els.btnConvert.addEventListener("click", convert);
 
   ["dragenter", "dragover"].forEach((ev) => {
-    els.dropzone.addEventListener(ev, (e) => {
+    els.dropzone && els.dropzone.addEventListener(ev, (e) => {
       e.preventDefault();
       e.stopPropagation();
       if (!selectedFile) els.dropzone.classList.add("dragover");
     });
   });
   ["dragleave", "drop"].forEach((ev) => {
-    els.dropzone.addEventListener(ev, (e) => {
+    els.dropzone && els.dropzone.addEventListener(ev, (e) => {
       e.preventDefault();
       e.stopPropagation();
       els.dropzone.classList.remove("dragover");
     });
   });
-  els.dropzone.addEventListener("drop", (e) => {
-    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    if (file) setFile(file);
-  });
+  if (els.dropzone) {
+    els.dropzone.addEventListener("drop", (e) => {
+      const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) setFile(file);
+    });
+  }
 
-  els.btnConvert.addEventListener("click", convert);
-  els.btnDownload.addEventListener("click", downloadMd);
-  els.btnCopy.addEventListener("click", copyMd);
+  if (els.resultLink) {
+    els.resultLink.addEventListener("click", (e) => {
+      if (lastJobId) {
+        e.preventDefault();
+        openOutput(lastJobId);
+      }
+    });
+  }
 
   /* ----- init ----------------------------------------------------------- */
 
   showStage("hero");
-  setResultState("empty");
-  setResultActionsIdle(true);
-  setPreviewEmpty(true);
   setSprout("off", 0);
-  els.btnConvert.disabled = true;
+  setUploadLimitLabel(25);
+  if (els.btnConvert) els.btnConvert.disabled = true;
   refreshHealth();
 })();

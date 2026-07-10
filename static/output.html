@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Markdown output from your PDF conversion. Copy or download the result." />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#1a1714" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0c0b0a" media="(prefers-color-scheme: dark)" />
+  <title>Output · PDF → Markdown</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="page-output">
+  <a class="skip-link" href="#workspace">Skip to output</a>
+
+  <div class="sprout" id="sprout" aria-hidden="true">
+    <span class="sprout-bar" id="sprout-bar"></span>
+  </div>
+
+  <header class="mast">
+    <div class="mast-row">
+      <a class="brand" href="/" aria-label="PDF to Markdown home">
+        <span class="brand-glyph" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+            <path d="M14 3v5h5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+            <path d="M9 13h6M9 16h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="brand-name">pdf → md</span>
+      </a>
+      <div class="mast-actions">
+        <a class="btn btn-ghost btn-back" href="/" aria-label="Start a new conversion">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>New file</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main id="workspace" class="workspace output-page" tabindex="-1">
+    <section class="result" id="panel-result" data-state="busy">
+      <header class="result-bar">
+        <div class="result-identity">
+          <h1 class="result-title" id="result-title">Loading…</h1>
+          <span id="meta" class="chip" hidden></span>
+        </div>
+        <div class="result-actions" id="result-actions" data-idle="true">
+          <button id="btn-copy" class="btn btn-ghost" type="button" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="8" y="8" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.6"/>
+              <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+            </svg>
+            <span>Copy</span>
+          </button>
+          <button id="btn-download" class="btn btn-secondary" type="button" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 3v12m0 0l-4-4m4 4l4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Download</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="preview-shell">
+        <div id="preview-skeleton" class="preview-skeleton" hidden aria-hidden="true">
+          <div class="sk-line sk-w-80"></div>
+          <div class="sk-line sk-w-92"></div>
+          <div class="sk-line sk-w-68"></div>
+          <div class="sk-gap"></div>
+          <div class="sk-line sk-w-86"></div>
+          <div class="sk-line sk-w-74"></div>
+          <div class="sk-line sk-w-60"></div>
+          <div class="sk-gap"></div>
+          <div class="sk-line sk-w-90"></div>
+          <div class="sk-line sk-w-72"></div>
+        </div>
+        <pre id="output-pre" class="preview is-empty" aria-live="polite"></pre>
+        <div class="preview-empty" id="preview-empty">
+          <p class="preview-empty-title" id="preview-empty-title">Loading conversion</p>
+          <p class="preview-empty-text" id="preview-empty-text">Fetching Markdown from the server…</p>
+        </div>
+      </div>
+    </section>
+
+    <aside class="output-side" id="output-side">
+      <p id="error" class="alert alert-error" hidden role="alert"></p>
+      <div id="warnings" class="alert alert-warn" hidden></div>
+
+      <dl class="facts facts-inline" id="facts" hidden>
+        <div class="fact">
+          <dt>Pages</dt>
+          <dd id="fact-pages">—</dd>
+        </div>
+        <div class="fact">
+          <dt>OCR pages</dt>
+          <dd id="fact-ocr">—</dd>
+        </div>
+        <div class="fact">
+          <dt>Source</dt>
+          <dd id="fact-source">—</dd>
+        </div>
+      </dl>
+
+      <div class="output-actions">
+        <a class="btn btn-secondary btn-block" href="/" aria-label="Convert another file">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          <span>Convert another file</span>
+        </a>
+      </div>
+    </aside>
+  </main>
+
+  <script src="/static/output.js"></script>
+</body>
+</html>

@@ -60,7 +60,7 @@
           </span>
           <p class="dropzone-title">Drop PDF here</p>
           <p class="dropzone-hint">or <span class="link-inline">browse files</span></p>
-          <p class="dropzone-foot">PDF up to 50 MB · processed locally</p>
+          <p class="dropzone-foot" id="upload-limit">PDF · processed locally</p>
         </div>
       </div>
     </section>
@@ -92,7 +92,7 @@
         </div>
       </div>
 
-      <div class="work-grid">
+      <div class="work-grid work-grid-narrow">
         <aside class="rail" id="rail">
           <button id="btn-convert" class="btn btn-primary" type="button" disabled aria-busy="false">
             <span class="btn-label">Convert</span>
@@ -111,7 +111,30 @@
           <p id="error" class="alert alert-error" hidden role="alert"></p>
           <div id="warnings" class="alert alert-warn" hidden></div>
 
-          <dl class="facts" id="facts" hidden>
+          <a id="result-link" class="result-link" href="/output" hidden>
+            <span class="result-link-meta">
+              <span class="result-link-glyph" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M5 12h14m0 0l-6-6m6 6l-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span class="result-link-text">
+                <span class="result-link-title">Conversion done</span>
+                <span class="result-link-sub">View Markdown output</span>
+              </span>
+            </span>
+            <span class="result-link-go" aria-hidden="true">Open</span>
+          </a>
+        </aside>
+
+        <section class="work-aside" id="work-aside" aria-labelledby="work-aside-title">
+          <h3 id="work-aside-title" class="work-aside-title">How it works</h3>
+          <ol class="steps">
+            <li><span class="step-num">1</span><span>Pick a PDF from your computer.</span></li>
+            <li><span class="step-num">2</span><span>Convert — text is extracted first, OCR fills in scanned pages.</span></li>
+            <li><span class="step-num">3</span><span>Open the result on the next page to copy or download.</span></li>
+          </ol>
+          <dl class="facts facts-inline" id="facts" hidden>
             <div class="fact">
               <dt>Pages</dt>
               <dd id="fact-pages">—</dd>
@@ -125,51 +148,6 @@
               <dd id="fact-source">—</dd>
             </div>
           </dl>
-        </aside>
-
-        <section class="result" id="panel-result" data-state="empty">
-          <header class="result-bar">
-            <div class="result-identity">
-              <h3 class="result-title">output.md</h3>
-              <span id="meta" class="chip" hidden></span>
-            </div>
-            <div class="result-actions" id="result-actions" data-idle="true">
-              <button id="btn-copy" class="btn btn-ghost" type="button" disabled>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <rect x="8" y="8" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.6"/>
-                  <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-                </svg>
-                <span>Copy</span>
-              </button>
-              <button id="btn-download" class="btn btn-secondary" type="button" disabled>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M12 3v12m0 0l-4-4m4 4l4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span>Download</span>
-              </button>
-            </div>
-          </header>
-
-          <div class="preview-shell">
-            <div id="preview-skeleton" class="preview-skeleton" hidden aria-hidden="true">
-              <div class="sk-line sk-w-80"></div>
-              <div class="sk-line sk-w-92"></div>
-              <div class="sk-line sk-w-68"></div>
-              <div class="sk-gap"></div>
-              <div class="sk-line sk-w-86"></div>
-              <div class="sk-line sk-w-74"></div>
-              <div class="sk-line sk-w-60"></div>
-              <div class="sk-gap"></div>
-              <div class="sk-line sk-w-90"></div>
-              <div class="sk-line sk-w-72"></div>
-            </div>
-            <pre id="output" class="preview is-empty" aria-live="polite"></pre>
-            <div class="preview-empty" id="preview-empty">
-              <p class="preview-empty-title">No output yet</p>
-              <p class="preview-empty-text">Press Convert to generate Markdown.</p>
-            </div>
-          </div>
         </section>
       </div>
     </section>
